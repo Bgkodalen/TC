@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 from tkinter import *
 from tkinter.ttk import *
+from tkinter import filedialog
 import os
 import xlrd
 
@@ -11,6 +12,11 @@ import xlrd
 Hours = ['10-11','11-12','12-1','1-2','2-3','3-4','4-5','5-6','6-7','7-8']
 Days = ['Monday','Tuesday','Wednesday','Thursday','Friday']
 Folder = 'Tutor Schedules'
+numtas = 19
+numplas = 43
+
+
+
 
 Names = [re.sub('\.[a-z]*','',tutor) for tutor in os.listdir(Folder)]
 
@@ -33,6 +39,13 @@ def quit(window):
     window.destroy()
 btn = Button(root,text = "Close",command = lambda: quit(root))
 btn.grid(column = 99, row = 99)
+
+### Browse for folder
+def browse_button():
+    global folder_path
+    filename = filedialog.askdirectory()
+    folder_path.set(filename)
+    print(filename)
 
 ### Current term
 term = Combobox(root)
