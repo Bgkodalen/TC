@@ -5,12 +5,18 @@ from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
 import os
+import pandas as pd
+
+### For now, though this will be replaced by pandas.
 import xlrd
 
 ### This code is written to help automate the scheduling process.
 
+
+### Preset Constants
 Hours = ['10-11','11-12','12-1','1-2','2-3','3-4','4-5','5-6','6-7','7-8']
 Days = ['Monday','Tuesday','Wednesday','Thursday','Friday']
+
 Folder = 'Tutor Schedules'
 numtas = 19
 numplas = 43
@@ -23,7 +29,56 @@ Names = [re.sub('\.[a-z]*','',tutor) for tutor in os.listdir(Folder)]
 
 
 
+Folder = 'C:\\Users\\bgkodalen\\Desktop\\TA\\Tutoring Center\\Cterm2018Schedule'
 
+####
+TAlist = pd.read_excel(Folder+'\\List of Tutors.xlsm', sheet_name = "Sheet1")['TA']
+PLAlist = pd.read_excel(Folder+'\\List of Tutors.xlsm', sheet_name = "Sheet2")['PLA']
+
+Tutorinfo = {}
+for tutor in TAlist:
+    if type(tutor) == str:
+        name = tutor.split(', ')
+        Tutorinfo[tutor] = {'firstname':name[1],'lastname':name[0],'hours':2,'scheduled':0,'role':'TA'}
+for tutor in PLAlist:
+    if type(tutor) == str:
+        name = tutor.split(', ')
+        Tutorinfo[tutor] = {'firstname':name[1],'lastname':name[0],'hours':1,'scheduled':0,'role':'PLA'}
+for tutor in Tutorinfo:
+    info = Tutorinfo[tutor]
+    try:
+        possiblenames = os.listdir(Folder+'\\Tutor Schedules')
+        for i in range(len(possiblenames)):
+            if info['firstname'].lower()+info['lastname'].lower()+'.xls' == possiblenames[i].lower():
+                index = i
+        temppref = pd.read_excel(Folder+'\\Tutor Schedules\\'+possiblenames[index])
+        Tutorinfo[tutor]['pref'] = {temppref[list(temppref)[i+1]][2]:{Hours[j-3]:temppref[list(temppref)[i+1]][j] for j in range(3,13)} for i in range(5)}
+    except:
+        Tutorinfo[tutor]['pref'] = 'None'
+
+def update_pos():
+    oneposs = {day:{hour:[] for hour in Hours} for day in Days}
+    for tutor in Tutorinfo:
+        if Tutorinfo[tutor]['scheduled'] < Tutorinfo[tutor]['hours']:
+            for day in Days:
+                for hour in Hours:
+                    if Tutorinfo[tutor]['pref'][day][hour] == 1:
+                        oneposs[day][hour].append(tutor+' ('+Tutorinfo[tutor]['role']+')')
+    return oneposs 
+
+def update_pref(schedule):
+    for tutor in Tutorinfo:
+        Tutorinfo[tutor]['scheduled'] = 0
+    for day in Days:
+        for hour in Hours:
+            for shift in [1,2]:
+                tutor = schedule[day][hour][shift].get().split()
+                if tutor[0]!='None':
+                    tutor = tutor[0]+' '+tutor[1]
+                    Tutorinfo[tutor]['scheduled'] +=1
+
+
+possibilities = update_pos()
 
 
 ### The actual GUI
@@ -52,59 +107,55 @@ term = Combobox(root)
 term.grid(column = 1,row = 1)
 term['values'] = ('A-term','B-term','C-term','D-term')
 
-
-
-### Check for schedules and possibly load them in.
-def GetSchedules(preloaded,window=0):
-    if preloaded:
-        schedules = pickle.load(open("Schedules.p",'rb'))
-        if window!=0:
-            quit(window)
-    schedules = {}
-    Tutorfiles = os.listdir(Folder)
-    for tutor in Tutorfiles:
-        sheet = xlrd.open_workbook(Folder+'\\'+tutor).sheet_by_index(0)
-        schedules[re.sub(r'\.[a-z]*','',tutor)] = np.array([[sheet.row_slice(rowx = r,start_colx = 1,end_colx = 6)] for r in range(4,14)])
-    pickle.dump(schedules,open("Schedules.p",'wb'))
-    if window != 0:
-        quit(window)
-
-def CheckSchedules():
-    if "Schedules.p" in os.listdir('.'):
-        localwindow = Toplevel(root)
-        Label(localwindow,text = "Schedules detected in your current directory.\n Would you like to load these in?\n or would you like to load the schedules from scratch?").grid(row = 0, column = 1, columnspan = 3)
-        btn1 = Button(localwindow, text = "Load previous schedules", command = lambda: GetSchedules(1,localwindow))
-        btn2 = Button(localwindow, text = "Load from scratch", command = lambda: GetSchedules(0,localwindow))
-        btn1.grid(row = 1,column = 2)
-        btn2.grid(row = 1,column = 3)
-    else:
-        GetSchedules(0)
-GetS = Button(root, text = "Load in Schedules", command = CheckSchedules)
-GetS.grid(column = 1, row = 2)
-
-
-
 ### The grid:
 schedule = Frame(root)
 schedule.grid(row = 2, column = 2)
-final = {}
+final = {day:{hour:{1:'',2:''} for hour in Hours} for day in Days}
 for i,day in enumerate(Days):
     Label(schedule,text = day).grid(row = 1, column = i+2)
     for j,time in enumerate(Hours):
+        
         if i==0:
             Label(schedule,text = str(time)).grid(row = 2*j+2,column = 1)
         for h in [1,2]:
-            final["{0}{1}{2}".format(day,time,h)] = Combobox(schedule)
-            final["{0}{1}{2}".format(day,time,h)].grid(row = 2*j+1+h,column = i+2)
-            final["{0}{1}{2}".format(day,time,h)]['values'] = ('None')
+            final[day][time][h] = Combobox(schedule)
+            final[day][time][h].grid(row = 2*j+1+h,column = i+2)
+            final[day][time][h]['values'] = tuple(['None']) + tuple(possibilities[day][time])
+            final[day][time][h].current(0)
 
+unscheduled = Combobox(root)
+unscheduled.grid(row = 1, column = 20)
+unscheduled['values'] = tuple(Tutorinfo)
+unscheduled.current(0)
 
+show = Button(root, text = "Show Schedule", command = lambda: Showschedule(unscheduled.get()))
+show.grid(row = 1,column = 21)
+
+def Showschedule(tutor):
+    S = Toplevel(root)
+    for i,day in enumerate(Days):
+        Label(S,text = day).grid(row = 0, column = i+1)
+        for j,hour in enumerate(Hours):
+            if i==0:
+                Label(S,text = hour).grid(row = j+1,column = 0)
+            Label(S,text = Tutorinfo[tutor]['pref'][day][hour]).grid(row = j+1,column = i+1)
+    quitbtn = Button(S, text = "Close",command = lambda: quit(S))
+    quitbtn.grid(row = 99,column = 99)
 
 
 def update():
-    print('nothing here yet')
-    #nothing yet
-     
+    update_pref(final)
+    possibilities = update_pos()
+    for day in Days:
+        for time in Hours:
+            for h in [1,2]:
+                final[day][time][h]['values'] = tuple(['None']) + tuple(possibilities[day][time])
+    temp = unscheduled.get()
+    unscheduled['values'] = tuple([tutor for tutor in Tutorinfo if Tutorinfo[tutor]['scheduled']<Tutorinfo[tutor]['hours']])
+    if temp not in unscheduled['values']:
+        unscheduled.current(0)
+    root.after(1000,lambda: update())
+
 
 
 ### Other document functions
@@ -280,7 +331,7 @@ def update():
 
 
 
-root.after(1000,update())
+root.after(1000,lambda: update())
 root.mainloop()
 
 
