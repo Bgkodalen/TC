@@ -15,13 +15,8 @@ Days = ['Monday','Tuesday','Wednesday','Thursday','Friday']
 
 
 
-
-
 #Folder = 'C:\\Users\\bgkodalen\\Desktop\\TA\\Tutoring Center\\Cterm2018Schedule'
-
 ####
-
-
 
 
 ### The actual GUI
@@ -45,6 +40,8 @@ def quit(window):
 btn = Button(root,text = "Close",command = lambda: quit(root))
 btn.grid(column = 99, row = 99)
 
+
+Label(master=root,text="Direct this program to the folder containing the list of tutors and all tutor schedules.\n (The schedules should be in a subfolder of the specified folder.)").grid(row = 2,column = 2)
 ### Browse for list of tutors
 global Slistcheck
 Slistcheck = 0
